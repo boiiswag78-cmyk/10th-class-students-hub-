@@ -95,6 +95,14 @@ export const SUBJECTS: Subject[] = [
     description: "Second Language Literature and Grammar.",
     topics: ["Vyakaran", "Kavita", "Kahani", "Nibandh", "Patra Lekhan"]
   },
+  {
+    id: "art",
+    name: "Art & Drawing",
+    icon: "Image",
+    color: "bg-blue-500",
+    description: "Sketching, Painting, and Visual Arts.",
+    topics: ["Basic Sketching", "Color Theory", "Perspective Drawing", "Still Life"]
+  },
 ];
 
 export const REVISION_NOTES = [
@@ -228,6 +236,39 @@ Used to describe actions that will happen in the future.
 ### 📝 Important Questions
 1. **Identify Tense:** "She has been working since morning." (Answer: Present Perfect Continuous)
 2. **Write Paragraph:** Write a short paragraph (50-60 words) about your daily routine using the Simple Present Tense.`
+    }
+  ],
+  art: [
+    {
+      title: "Basic Sketching",
+      content: `### Basic Sketching
+      
+Sketching is the foundation of all visual arts. It involves creating rough outlines and shapes.
+
+![Sketching Example](https://picsum.photos/seed/sketch/800/400)
+
+**Key Techniques:**
+- **Hatching:** Parallel lines to create shade.
+- **Cross-hatching:** Intersecting lines for deeper shadows.
+- **Stippling:** Using dots to create texture.`
+    },
+    {
+      title: "Color Theory",
+      content: `### Color Theory
+      
+Understanding how colors interact is crucial for any artist.
+
+![Color Wheel](https://picsum.photos/seed/colors/800/400)
+
+**Primary Colors:**
+1. Red
+2. Blue
+3. Yellow
+
+**Secondary Colors:**
+- Green (Blue + Yellow)
+- Orange (Red + Yellow)
+- Purple (Red + Blue)`
     }
   ]
 };

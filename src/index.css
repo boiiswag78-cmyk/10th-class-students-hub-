@@ -28,4 +28,18 @@
   .markdown-body pre {
     @apply bg-slate-900 text-slate-100 p-4 rounded-xl overflow-x-auto mb-4;
   }
+
+  /* Dark mode overrides for markdown */
+  .markdown-body.dark {
+    @apply text-slate-300;
+  }
+  .markdown-body.dark h1, .markdown-body.dark h2, .markdown-body.dark h3 {
+    @apply text-slate-100;
+  }
+  .markdown-body.dark code {
+    @apply bg-slate-800 text-blue-400;
+  }
+  .markdown-body.dark strong {
+    @apply text-slate-100;
+  }
 }

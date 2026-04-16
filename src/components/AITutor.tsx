@@ -61,7 +61,7 @@ export default function AITutor() {
   };
 
   return (
-    <div className="flex flex-col h-[600px] bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100">
+    <div className="flex flex-col h-[600px] bg-slate-900 rounded-3xl shadow-xl overflow-hidden border border-slate-800">
       <div className="p-4 bg-blue-600 text-white flex items-center gap-3">
         <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
           <Bot className="w-6 h-6" />
@@ -72,12 +72,12 @@ export default function AITutor() {
         </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/50">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-950">
         {messages.map((msg, idx) => (
           <div key={idx} className={cn("flex gap-3", msg.role === "user" ? "flex-row-reverse" : "flex-row")}>
             <div className={cn(
               "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
-              msg.role === "user" ? "bg-blue-100 text-blue-600" : "bg-white border border-slate-200 text-slate-600"
+              msg.role === "user" ? "bg-blue-900/40 text-blue-400" : "bg-slate-800 border border-slate-700 text-slate-400"
             )}>
               {msg.role === "user" ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
             </div>
@@ -85,27 +85,39 @@ export default function AITutor() {
               "max-w-[80%] p-4 rounded-2xl text-sm leading-relaxed",
               msg.role === "user" 
                 ? "bg-blue-600 text-white rounded-tr-none" 
-                : "bg-white text-slate-800 shadow-sm border border-slate-100 rounded-tl-none"
+                : "bg-slate-800 text-slate-200 shadow-sm border border-slate-700 rounded-tl-none"
             )}>
-              <div className="markdown-body">
-                <ReactMarkdown>{msg.content}</ReactMarkdown>
+              <div className="markdown-body dark">
+                <ReactMarkdown
+                  components={{
+                    img: ({ node, ...props }) => (
+                      <img 
+                        {...props} 
+                        referrerPolicy="no-referrer" 
+                        className="rounded-xl shadow-md border border-slate-700 my-4"
+                      />
+                    )
+                  }}
+                >
+                  {msg.content}
+                </ReactMarkdown>
               </div>
             </div>
           </div>
         ))}
         {isLoading && (
           <div className="flex gap-3">
-            <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center">
-              <Bot className="w-4 h-4 text-slate-400" />
+            <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center">
+              <Bot className="w-4 h-4 text-slate-500" />
             </div>
-            <div className="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-slate-100">
-              <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+            <div className="bg-slate-800 p-4 rounded-2xl rounded-tl-none shadow-sm border border-slate-700">
+              <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
             </div>
           </div>
         )}
       </div>
 
-      <div className="p-6 bg-white border-t border-slate-100">
+      <div className="p-6 bg-slate-900 border-t border-slate-800">
         <div className="flex gap-3">
           <input
             type="text"
@@ -113,12 +125,12 @@ export default function AITutor() {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
             placeholder="Ask a question (e.g., 'Explain Pythagoras theorem')"
-            className="flex-1 p-5 bg-slate-50 rounded-2xl border-2 border-slate-100 focus:outline-none focus:border-blue-500 text-lg font-medium transition-all"
+            className="flex-1 p-5 bg-slate-800 rounded-2xl border-2 border-slate-700 focus:outline-none focus:border-blue-500 text-lg font-medium transition-all text-slate-100 placeholder:text-slate-500"
           />
           <button
             onClick={handleSend}
             disabled={isLoading || !input.trim()}
-            className="p-5 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 disabled:opacity-50 transition-all shadow-lg shadow-blue-100"
+            className="p-5 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 disabled:opacity-50 transition-all shadow-lg shadow-blue-900/20"
           >
             <Send className="w-6 h-6" />
           </button>

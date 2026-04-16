@@ -5,7 +5,6 @@ import {
   CheckCircle, 
   LayoutDashboard, 
   MessageSquare, 
-  Zap, 
   Trophy,
   TrendingUp,
   ArrowRight,
@@ -21,10 +20,14 @@ import SubjectCard from "./components/SubjectCard";
 import Quiz from "./components/Quiz";
 import AITutor from "./components/AITutor";
 import StudyPlanner from "./components/StudyPlanner";
-import QuickRevision from "./components/QuickRevision";
 import Auth from "./components/Auth";
 import { cn } from "./lib/utils";
 import { UserProgress, Subject, StudyTask } from "./types";
+import { auth, db, handleFirestoreError, OperationType } from "./firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { User as FirebaseUser } from "firebase/auth";
+import { LogOut } from "lucide-react";
+import { doc, setDoc, getDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
 
 const RECENT_ACTIVITIES = [
   { id: 1, type: 'quiz', title: 'Completed Math Quiz', time: '2 hours ago', icon: Trophy, color: 'text-amber-500', bg: 'bg-amber-500/10' },
@@ -33,23 +36,120 @@ const RECENT_ACTIVITIES = [
 ];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "tutor" | "planner" | "revision">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "tutor" | "planner">("dashboard");
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [showQuiz, setShowQuiz] = useState(false);
   const [selectedNote, setSelectedNote] = useState<{ title: string; content: string } | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userPhone, setUserPhone] = useState("");
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [streak, setStreak] = useState(0);
   const [progress, setProgress] = useState<UserProgress[]>(
     SUBJECTS.map(s => ({ subjectId: s.id, score: 0, totalQuizzes: 0 }))
   );
 
-  const handleQuizComplete = (score: number) => {
-    if (!selectedSubject) return;
-    setProgress(prev => prev.map(p => 
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setIsAuthReady(true);
+      
+      if (currentUser) {
+        // Create user document if it doesn't exist
+        const userRef = doc(db, 'users', currentUser.uid);
+        setDoc(userRef, {
+          uid: currentUser.uid,
+          email: currentUser.email,
+          displayName: currentUser.displayName,
+          photoURL: currentUser.photoURL,
+          createdAt: serverTimestamp()
+        }, { merge: true });
+
+        // Listen to user profile for streak
+        const unsubUser = onSnapshot(userRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.data();
+            setStreak(data.streak || 0);
+          }
+        });
+
+        // Listen to progress changes
+        const progressRef = doc(db, 'users', currentUser.uid, 'progress', 'all');
+        const unsubProgress = onSnapshot(progressRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.data();
+            if (data.progress) {
+              setProgress(data.progress);
+            }
+          }
+        }, (error) => {
+          handleFirestoreError(error, OperationType.GET, `users/${currentUser.uid}/progress/all`);
+        });
+
+        return () => {
+          unsubProgress();
+          unsubUser();
+        };
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    try {
+      await auth.signOut();
+    } catch (error) {
+      console.error("Sign out failed:", error);
+    }
+  };
+
+  const handleQuizComplete = async (score: number) => {
+    if (!selectedSubject || !user) return;
+    
+    const newProgress = progress.map(p => 
       p.subjectId === selectedSubject.id 
         ? { ...p, score: p.score + score, totalQuizzes: p.totalQuizzes + 1 } 
         : p
-    ));
+    );
+    
+    setProgress(newProgress);
+
+    // Update streak logic
+    const today = new Date().toISOString().split('T')[0];
+    const userRef = doc(db, 'users', user.uid);
+    
+    try {
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        const lastDate = userData.lastStudyDate;
+        let newStreak = userData.streak || 0;
+
+        if (lastDate !== today) {
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+          if (lastDate === yesterdayStr) {
+            newStreak += 1;
+          } else {
+            newStreak = 1;
+          }
+
+          await setDoc(userRef, {
+            streak: newStreak,
+            lastStudyDate: today
+          }, { merge: true });
+        }
+      }
+
+      // Sync progress to Firestore
+      const progressRef = doc(db, 'users', user.uid, 'progress', 'all');
+      await setDoc(progressRef, { 
+        progress: newProgress,
+        lastUpdated: serverTimestamp()
+      }, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}/progress/all`);
+    }
   };
 
   const chartData = progress.map(p => ({
@@ -58,11 +158,16 @@ export default function App() {
     color: '#3b82f6'
   }));
 
-  if (!isAuthenticated) {
-    return <Auth onLogin={(phone) => {
-      setUserPhone(phone);
-      setIsAuthenticated(true);
-    }} />;
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Auth />;
   }
 
   return (
@@ -87,12 +192,6 @@ export default function App() {
         >
           <MessageSquare className="w-8 h-8" />
         </button>
-        <button 
-          onClick={() => { setActiveTab("revision"); setSelectedNote(null); }}
-          className={cn("flex flex-col items-center gap-2 transition-all hover:scale-110", activeTab === "revision" ? "text-blue-400" : "text-slate-500")}
-        >
-          <Zap className="w-8 h-8" />
-        </button>
       </nav>
 
       {/* Header */}
@@ -107,20 +206,35 @@ export default function App() {
               <p className="text-[10px] font-bold text-blue-400 uppercase tracking-[0.2em] mt-1">SSC AP Prep</p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="hidden md:flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-full border border-slate-700">
-              <Trophy className="w-4 h-4 text-amber-500" />
-              <span className="text-sm font-bold text-slate-200">{progress.reduce((acc, p) => acc + p.score, 0)} Points</span>
+            <div className="flex items-center gap-4">
+              <div className="hidden md:flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-full border border-slate-700">
+                <Trophy className="w-4 h-4 text-amber-500" />
+                <span className="text-sm font-bold text-slate-200">{progress.reduce((acc, p) => acc + p.score, 0)} Points</span>
+              </div>
+              <div className="relative group">
+                <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-slate-700 shadow-lg cursor-pointer hover:border-blue-500 transition-colors">
+                  <img 
+                    src={user.photoURL || `https://picsum.photos/seed/${user.uid}/100/100`} 
+                    alt="Profile" 
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="absolute top-full right-0 mt-2 w-48 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 p-2">
+                  <div className="px-4 py-3 border-b border-slate-800 mb-2">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Signed in as</p>
+                    <p className="text-sm font-bold text-slate-200 truncate">{user.displayName || 'Student'}</p>
+                  </div>
+                  <button 
+                    onClick={handleSignOut}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-sm font-bold text-red-400 hover:bg-red-500/10 rounded-xl transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Sign Out
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-slate-700 shadow-lg group cursor-pointer hover:border-blue-500 transition-colors">
-              <img 
-                src={`https://picsum.photos/seed/${userPhone}/100/100`} 
-                alt="Profile" 
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover"
-              />
-            </div>
-          </div>
         </div>
       </header>
 
@@ -166,9 +280,9 @@ export default function App() {
                       <div>
                         <TrendingUp className="w-10 h-10 mb-4 opacity-80" />
                         <h2 className="text-2xl font-bold mb-2">Daily Streak</h2>
-                        <p className="text-blue-100 text-sm">You've studied for 5 days in a row!</p>
+                        <p className="text-blue-100 text-sm">You've studied for {streak} {streak === 1 ? 'day' : 'days'} in a row!</p>
                       </div>
-                      <div className="text-5xl font-black">5 DAYS</div>
+                      <div className="text-5xl font-black">{streak} {streak === 1 ? 'DAY' : 'DAYS'}</div>
                     </div>
                   </div>
 
@@ -198,25 +312,6 @@ export default function App() {
                           </div>
                         </div>
                       ))}
-                    </div>
-                  </div>
-
-                  {/* Quick Revision Shortcut */}
-                  <div 
-                    onClick={() => { setActiveTab("revision"); setSelectedNote(null); }}
-                    className="bg-slate-900 border-2 border-slate-800 p-8 rounded-3xl flex items-center justify-between cursor-pointer hover:border-blue-600 transition-all group shadow-sm"
-                  >
-                    <div className="flex items-center gap-6">
-                      <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-xl shadow-blue-900/20">
-                        <Zap className="w-8 h-8 text-white fill-white" />
-                      </div>
-                      <div>
-                        <h3 className="text-2xl font-black text-slate-100">⚡ Quick Revision</h3>
-                        <p className="text-slate-400 font-medium">Review essential formulas and key concepts instantly.</p>
-                      </div>
-                    </div>
-                    <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
-                      <TrendingUp className="w-6 h-6 rotate-90" />
                     </div>
                   </div>
 
@@ -378,18 +473,6 @@ export default function App() {
               className="max-w-4xl mx-auto"
             >
               <AITutor />
-            </motion.div>
-          )}
-
-          {activeTab === "revision" && (
-            <motion.div
-              key="revision"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="max-w-4xl mx-auto h-[700px]"
-            >
-              <QuickRevision />
             </motion.div>
           )}
         </AnimatePresence>

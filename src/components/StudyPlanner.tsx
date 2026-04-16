@@ -1,11 +1,45 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { StudyTask } from "../types";
 import { Plus, CheckCircle2, Circle, Trash2, Calendar } from "lucide-react";
 import { cn } from "../lib/utils";
+import { auth, db, handleFirestoreError, OperationType } from "../firebase";
+import { doc, setDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
 
 export default function StudyPlanner() {
   const [tasks, setTasks] = useState<StudyTask[]>([]);
   const [newTask, setNewTask] = useState("");
+  const user = auth.currentUser;
+
+  useEffect(() => {
+    if (!user) return;
+
+    const tasksRef = doc(db, 'users', user.uid, 'planner', 'tasks');
+    const unsubscribe = onSnapshot(tasksRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        if (data.tasks) {
+          setTasks(data.tasks);
+        }
+      }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `users/${user.uid}/planner/tasks`);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const syncTasks = async (updatedTasks: StudyTask[]) => {
+    if (!user) return;
+    try {
+      const tasksRef = doc(db, 'users', user.uid, 'planner', 'tasks');
+      await setDoc(tasksRef, { 
+        tasks: updatedTasks,
+        lastUpdated: serverTimestamp()
+      }, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}/planner/tasks`);
+    }
+  };
 
   const addTask = () => {
     if (!newTask.trim()) return;
@@ -16,16 +50,22 @@ export default function StudyPlanner() {
       completed: false,
       dueDate: new Date().toISOString().split('T')[0],
     };
-    setTasks([...tasks, task]);
+    const updatedTasks = [...tasks, task];
+    setTasks(updatedTasks);
+    syncTasks(updatedTasks);
     setNewTask("");
   };
 
   const toggleTask = (id: string) => {
-    setTasks(tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
+    const updatedTasks = tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t);
+    setTasks(updatedTasks);
+    syncTasks(updatedTasks);
   };
 
   const deleteTask = (id: string) => {
-    setTasks(tasks.filter(t => t.id !== id));
+    const updatedTasks = tasks.filter(t => t.id !== id);
+    setTasks(updatedTasks);
+    syncTasks(updatedTasks);
   };
 
   return (

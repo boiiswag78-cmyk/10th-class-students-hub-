@@ -6,6 +6,7 @@
       "type": "object",
       "properties": {
         "uid": { "type": "string" },
+        "phoneNumber": { "type": "string" },
         "displayName": { "type": "string" },
         "email": { "type": "string", "format": "email" },
         "photoURL": { "type": "string" },

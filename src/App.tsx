@@ -57,9 +57,10 @@ export default function App() {
         const userRef = doc(db, 'users', currentUser.uid);
         setDoc(userRef, {
           uid: currentUser.uid,
-          email: currentUser.email,
-          displayName: currentUser.displayName,
-          photoURL: currentUser.photoURL,
+          phoneNumber: currentUser.phoneNumber,
+          email: currentUser.email || null,
+          displayName: currentUser.displayName || `Student ${currentUser.phoneNumber?.slice(-4)}`,
+          photoURL: currentUser.photoURL || null,
           createdAt: serverTimestamp()
         }, { merge: true });
 

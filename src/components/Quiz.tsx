@@ -77,11 +77,14 @@ export default function Quiz({ questions, onComplete, onClose }: QuizProps) {
         
         <div className="space-y-5">
           {currentQuestion.options.map((option, idx) => {
+            const isCorrect = idx === currentQuestion.correctAnswer;
+            const isSelected = idx === selectedOption;
+            
             let variant = "default";
             if (isAnswered) {
-              if (idx === currentQuestion.correctAnswer) variant = "correct";
-              else if (idx === selectedOption) variant = "incorrect";
-            } else if (idx === selectedOption) {
+              if (isCorrect) variant = "correct";
+              else if (isSelected) variant = "incorrect";
+            } else if (isSelected) {
               variant = "selected";
             }
 
@@ -94,13 +97,13 @@ export default function Quiz({ questions, onComplete, onClose }: QuizProps) {
                   "w-full p-6 rounded-2xl border-2 text-left transition-all flex items-center justify-between text-lg font-bold",
                   variant === "default" && "border-slate-800 hover:border-blue-500 hover:bg-slate-800/50 text-slate-300",
                   variant === "selected" && "border-blue-600 bg-blue-900/20 text-blue-400 shadow-lg shadow-blue-900/20",
-                  variant === "correct" && "border-blue-600 bg-blue-600 text-white",
-                  variant === "incorrect" && "border-red-600 bg-red-900/20 text-red-400"
+                  variant === "correct" && (isSelected ? "border-green-600 bg-green-600 text-white" : "border-green-600/40 bg-green-900/10 text-green-400"),
+                  variant === "incorrect" && "border-red-600 bg-red-600 text-white"
                 )}
               >
                 <span>{option}</span>
-                {variant === "correct" && <CheckCircle2 className="w-6 h-6" />}
-                {variant === "incorrect" && <XCircle className="w-6 h-6" />}
+                {isAnswered && isCorrect && <CheckCircle2 className="w-6 h-6" />}
+                {isAnswered && isSelected && !isCorrect && <XCircle className="w-6 h-6" />}
               </button>
             );
           })}
